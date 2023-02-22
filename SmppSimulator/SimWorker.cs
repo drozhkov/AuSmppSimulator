@@ -6,14 +6,13 @@
 namespace SmppSimulator
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
     using System.ComponentModel;
-    using System.Configuration;
-    using System.Diagnostics;
+    using System.Security.Cryptography;
     using System.Threading;
+
     using AxSms;
-    using Microsoft.Win32;
+
     using Properties;
 
     public class SimWorker
@@ -36,8 +35,14 @@ namespace SmppSimulator
         #region properties
         public SimModel SimModel
         {
-            get { return m_objSimModel; }
-            set { m_objSimModel = value; }
+            get
+            {
+                return m_objSimModel;
+            }
+            set
+            {
+                m_objSimModel = value;
+            }
         }
         #endregion
 
@@ -80,7 +85,7 @@ namespace SmppSimulator
         public SimWorker()
         {
             m_objServerWorker.WorkerSupportsCancellation = true;
-            m_objServerWorker.DoWork += new DoWorkEventHandler(bw_Startup);            
+            m_objServerWorker.DoWork += new DoWorkEventHandler(bw_Startup);
         }
 
         public void StartServer()
@@ -130,7 +135,7 @@ namespace SmppSimulator
 
             objServer.LastReference = m_objSimModel.LastReference;
             objServer.Start(m_objSimModel.Port, m_objSimModel.IpVersion, m_objSimModel.Certificate);
-            
+
             SimCommand objCommand = new SimCommand();
             objCommand.CommandId = SimCommand.ECommandId.RESPONSECODE;
             objCommand.LastError = objServer.LastError;
@@ -164,7 +169,9 @@ namespace SmppSimulator
             int nGeneratePerMinute = m_objSimModel.GeneratePerMinute;
             bool bRandomOrder = m_objSimModel.RandomOrder;
             int nAutoMsgIndex = 0;
+#pragma warning disable SecurityIntelliSenseCS // MS Security rules violation
             Random objRandom = new Random();
+#pragma warning restore SecurityIntelliSenseCS // MS Security rules violation
 
             var dctWrkSessions = new Dictionary<int, WrkSession>();
             while (!objWorker.CancellationPending)
@@ -271,7 +278,7 @@ namespace SmppSimulator
                             // othewise, reject the message, queue full..
                             SimMessage objMessage = new SimMessage(lsAutoMessages[nAutoMsgIndex]);
                             objMessage.SessionId = objSimSession.Id;
-                            objMessage.SystemId = objSimSession.SystemId;                            
+                            objMessage.SystemId = objSimSession.SystemId;
                             bw_AddOutgoing(objMessage, objWrkSession.qOutMessages, lsMessagesGenerated, true);
                         }
                     }
@@ -460,10 +467,10 @@ namespace SmppSimulator
 
             if (bCouldBeMultipart)
             {
-                AxSms.Message objRoot = objMessage.CreateAxSms();                
+                AxSms.Message objRoot = objMessage.CreateAxSms();
                 if (m_objSplitSms.CountParts(objRoot) > 1)
                 {
-                   AxSms.Message objPart = m_objSplitSms.GetFirstPart(objRoot);
+                    AxSms.Message objPart = m_objSplitSms.GetFirstPart(objRoot);
                     while (m_objSplitSms.LastError == 0)
                     {
                         lsParts.Add(new SimMessage(objPart));
@@ -497,7 +504,7 @@ namespace SmppSimulator
         SimMessage bw_CreateDlr(SimMessage objIn, int nVersion, int nStatusCode, string strStatusText, AxSms.Constants objSmsConst)
         {
             SimMessage objDlr = new SimMessage();
-            
+
             // Swap adress
             objDlr.FromAddress = objIn.ToAddress;
             objDlr.FromAddressNpi = objIn.ToAddressNpi;
@@ -515,7 +522,7 @@ namespace SmppSimulator
             {
                 objDlr.Tlvs.Clear();
                 AxSms.Tlv objAxTlv = new AxSms.Tlv();
-                
+
                 SimTlv objTlv = new SimTlv();
                 objTlv.Tag = objSmsConst.SMPP_TLV_MESSAGE_STATE;
                 objAxTlv.ValueAsInt8 = nStatusCode;
@@ -534,11 +541,11 @@ namespace SmppSimulator
                 objTlv.HexValue = objTlv.TypedValue;
                 objDlr.Tlvs.Add(objTlv);
             }
-            
+
             // NOTE: submit date and done date are the same!
-            
+
             string strExcerpt = objIn.Body.Substring(0, Math.Min(objIn.Body.Length, 60));
-            int iNumSmsDelivered = nStatusCode == objSmsConst.SMPP_MESSAGESTATE_DELIVERED ? 1: 0;
+            int iNumSmsDelivered = nStatusCode == objSmsConst.SMPP_MESSAGESTATE_DELIVERED ? 1 : 0;
             string strBody = string.Format("id:{0} sub:001 dlvrd:{1:D3} submit date:{2:yyMMddHHmmss} done date:{2:yyMMddHHmmss} stat:{3} err:000 text:{4}",
                 objIn.Reference, iNumSmsDelivered, DateTime.Now, strStatusText, strExcerpt);
 
